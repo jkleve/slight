@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_library(sqlite3 sqlite3/sqlite3.c)
 
+target_compile_definitions(
+    sqlite3
+    PRIVATE
+        SQLITE_OMIT_AUTHORIZATION
+        SQLITE_OMIT_DEPRECATED
+        SQLITE_OMIT_LOAD_EXTENSION
+)
+
 add_library(slight
     src/Bind.cpp
     src/Database.cpp
