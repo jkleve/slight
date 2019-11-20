@@ -4,19 +4,25 @@
 namespace slight {
 
 template<>
-Typer<kInt>::Type Result::get<kInt>(uint32_t index)
+Typer<kInt>::Type Result::get<kInt>(int index)
 {
     return sqlite3_column_int(m_stmt.get(), index - 1);
 }
 
 template<>
-Typer<kFloat>::Type Result::get<kFloat>(uint32_t index)
+Typer<kInt64>::Type Result::get<kInt64>(int index)
 {
-    return sqlite3_column_double(m_stmt.get(), index - 1);
+    return sqlite3_column_int64(m_stmt.get(), index - 1);
 }
 
 template<>
-Typer<kText>::Type Result::get<kText>(uint32_t index)
+Typer<kUint>::Type Result::get<kUint>(int index)
+{
+    return static_cast<Typer<kUint>::Type>(sqlite3_column_int64(m_stmt.get(), index - 1));
+}
+
+template<>
+Typer<kText>::Type Result::get<kText>(int index)
 {
     return reinterpret_cast<const char*>(sqlite3_column_text(m_stmt.get(), index - 1));
 }

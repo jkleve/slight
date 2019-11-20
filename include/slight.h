@@ -19,7 +19,7 @@ namespace slight {
 class Bind;
 class Database;
 class Result;
-class Sql;
+class Query;
 
 enum Access {
     kReadOnly = SQLITE_OPEN_READONLY,
@@ -27,7 +27,7 @@ enum Access {
     kCreateReadWrite = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE,
 };
 
-enum ColumnType { kNull, kInt, kFloat, kText, kBlob, kDatetime };
+enum ColumnType { kNull, kInt, kInt64, kUint, kFloat, kText, kBlob, kDatetime };
 
 
 struct stmt_ptr {
@@ -49,7 +49,9 @@ private:
 };
 
 template<ColumnType type> struct Typer {};
-template<> struct                Typer<kInt>   { typedef int         Type; };
+template<> struct                Typer<kInt>   { typedef int32_t     Type; };
+template<> struct                Typer<kInt64> { typedef int64_t     Type; };
+template<> struct                Typer<kUint>  { typedef uint32_t    Type; };
 template<> struct                Typer<kFloat> { typedef double      Type; };
 template<> struct                Typer<kText>  { typedef const char* Type; };
 
@@ -69,7 +71,7 @@ public:
     const char*  error_msg() const;
 
     template<ColumnType type>
-    typename Typer<type>::Type get(uint32_t index);
+    typename Typer<type>::Type get(int index);
 
 private:
     int m_error;
@@ -79,11 +81,20 @@ private:
 
 class Bind {
 public:
+    explicit Bind(int32_t i);
+    explicit Bind(int64_t i);
     explicit Bind(uint32_t i);
     explicit Bind(float f);
     explicit Bind(const char* str);
+    Bind(const char* column, int32_t i);
+    Bind(const char* column, int64_t i);
+    Bind(const char* column, uint32_t i);
+    Bind(const char* column, float f);
+    Bind(const char* column, const char* str);
 
     ColumnType             type() const;
+    int32_t                 i32() const;
+    int64_t                 i64() const;
     uint32_t                u32() const;
     float                  real() const;
     const std::string&      str() const;
@@ -92,18 +103,19 @@ public:
 
 private:
     ColumnType m_type;
-    uint32_t m_i;
+    int64_t m_i;
     float m_f;
     std::string m_str;
 };
 
-class Sql {
+class Query {
     friend Database;
 public:
-    explicit Sql(std::string&& sql);
-    Sql(const char* sql, std::initializer_list<Bind>&& binds);
-    Sql(std::string&& sql, std::initializer_list<Bind>&& binds);
-    ~Sql() = default;
+    explicit Query(std::string&& query);
+    Query(const char* query, Bind&& bind);
+    Query(const char* query, std::initializer_list<Bind>&& binds);
+    Query(std::string&& query, std::initializer_list<Bind>&& binds);
+    ~Query() = default;
 
     const char* query() const;
     size_t       size() const;
@@ -111,7 +123,7 @@ public:
 private:
     bool compile(sqlite3* db, sqlite3_stmt** stmt);
 
-    std::string m_sql;
+    std::string m_query;
     std::vector<Bind> m_binds;
 };
 
@@ -120,12 +132,12 @@ public:
     Database(const std::string& path, Access access);
     virtual ~Database();
 
-    Result backup(); // @todo
     Result backup(int page_size); // @todo
+    Result backup(const std::string& backup_path, int page_size, int flags); // @todo
     Result getSchemaVersion();
     Result setSchemaVersion(int version);
-    Result build(Sql&& sql);
-    Result run(std::initializer_list<Sql>&& sqls);
+    Result run(Query&& query);
+    Result run(std::initializer_list<Query>&& queries);
 
 private:
     struct transaction_t {
@@ -134,11 +146,21 @@ private:
         void commit();
     private:
         sqlite3* db;
+        const std::string path;
         bool committed;
     };
     sqlite3* m_db;
 };
 
 } // namespace slight
+
+#ifdef SLIGHT_HEADER
+#include "../src/Bind.cpp"
+#include "../src/Database.cpp"
+#include "../src/Query.cpp"
+#include "../src/Result.cpp"
+#include "../src/stmpt_ptr.cpp"
+#include "../src/utils.cpp"
+#endif
 
 #endif // SLIGHT_H

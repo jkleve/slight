@@ -19,39 +19,64 @@ Database::~Database()
     sqlite3_close(m_db);
 }
 
-// @todo unimplemented methods
-Result Database::backup() {}
-Result Database::backup(int page_size) {}
-Result Database::getSchemaVersion() {}
-Result Database::setSchemaVersion(int version) {}
+// @todo implemented backup
+Result Database::backup(const std::string& backup_path, int page_size, int flags)
+{
+    sqlite3* backup_db;
+    //int num_pages = 1;
+    //auto status = sqlite3_open_v2(path, &db, backup_path, &backup_db);
+    //auto backup = sqlite3_backup_init(db, "main", backup_path, "main");
+    //const int res = sqlite3_backup_step(backup_db, 1);
+    //sqlite3_backup_finish(m_db);
+}
 
-Result Database::build(Sql&& sql)
+// @todo implement backup(size)
+Result Database::backup(int page_size) {}
+
+// @todo test
+Result Database::getSchemaVersion()
+{
+    return run(Query("PRAGMA user_version"));
+}
+
+// @todo test
+Result Database::setSchemaVersion(int version)
+{
+    return run(Query("PRAGMA user_version = ?", Bind(version)));
+}
+
+Result Database::run(Query&& query)
 {
     if (!m_db)
         return Result(m_db, stmt_ptr(nullptr), Result::kError);
 
     stmt_ptr stmt(m_db);
-    sql.compile(m_db, *stmt);
+    query.compile(m_db, *stmt);
     return stmt ? Result(m_db, std::move(stmt)) : Result(m_db, std::move(stmt), Result::kError);
 }
 
-Result Database::run(std::initializer_list<Sql>&& sqls)
+Result Database::run(std::initializer_list<Query>&& queries)
 {
     if (!m_db)
+    {
         return Result(m_db, stmt_ptr(nullptr), Result::kError);
+    }
 
-    bool success = true;
     transaction_t t(m_db);
     stmt_ptr stmt(m_db);
-    for (auto sql : sqls)
+    for (auto query : queries)
     {
-        if (!sql.compile(m_db, *stmt))
+        if (!query.compile(m_db, *stmt))
+        {
             return Result(m_db, std::move(stmt), Result::kError);
+        }
 
         auto result = Result(m_db, stmt);
         while (result.step()) {}
         if (result.error())
+        {
             return Result(m_db, std::move(stmt), Result::kError);
+        }
 
         sqlite3_reset(stmt.get());
     }

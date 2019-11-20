@@ -9,7 +9,7 @@ add_library(slight
     src/Bind.cpp
     src/Database.cpp
     src/Result.cpp
-    src/Sql.cpp
+    src/Query.cpp
     src/stmt_ptr.cpp
 )
 

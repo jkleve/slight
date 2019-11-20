@@ -2,7 +2,7 @@
 #include <iostream>
 
 using slight::Bind;
-using slight::Sql;
+using slight::Query;
 
 int main()
 {
@@ -49,12 +49,12 @@ int main()
     slight::Database db("my.db", slight::Access::kCreateReadWrite);
 
     auto create = db.run({
-        Sql("CREATE TABLE IF NOT EXISTS my_table_name ("
+        Query("CREATE TABLE IF NOT EXISTS my_table_name ("
             "id PRIMARY KEY,"
             "name VARCHAR(200),"
             "age INTEGER,"
             "notes TEXT)"),
-        Sql("CREATE TABLE IF NOT EXISTS my_other_table ("
+        Query("CREATE TABLE IF NOT EXISTS my_other_table ("
             "id PRIMARY KEY,"
             "name VARCHAR(200))")
     });
@@ -65,8 +65,8 @@ int main()
         return -1;
     }
 
-    auto insert = db.build(
-        Sql("INSERT INTO my_table_name VALUES (?, ?, ?, ?)",
+    auto insert = db.run(
+        Query("INSERT INTO my_table_name VALUES (?, ?, ?, ?)",
             {Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())})
     ).step();
 
@@ -77,7 +77,7 @@ int main()
     }
 
     std::cout << "Contents are:" << std::endl;
-    auto values = db.build(Sql("SELECT * FROM my_table_name"));
+    auto values = db.run(Query("SELECT * FROM my_table_name"));
     while (values.step())
     {
         std::cout << "User: " << values.get<slight::kText>(2) <<  " (" << values.get<slight::kInt>(1) << "), age: " <<
@@ -90,8 +90,12 @@ int main()
         return -1;
     }
 
-    auto err = db.build(Sql("slight MALFORMED query")).step();
+    auto err = db.run(Query("slight MALFORMED query")).step();
     std::cout << err.error_code() << ": " << err.error_msg();
+
+    auto more_types = db.run(
+        Query("INSERT INTO my_table_name VALUES (:id, ?, :id, ?)",
+            Bind(":id", 69))).step();
 
     return 0;
 }
