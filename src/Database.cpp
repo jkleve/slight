@@ -8,8 +8,7 @@ Database::Database(const std::string& path, Access access)
     : m_open(false)
     , m_db(nullptr)
 {
-    auto status = sqlite3_open_v2(path.c_str(), &m_db, access, nullptr);
-    if (status == SQLITE_OK)
+    if (sqlite3_open_v2(path.c_str(), &m_db, access, nullptr) == SQLITE_OK)
     {
         m_open = true;
     }
@@ -50,19 +49,19 @@ Result Database::run(Query&& query)
 {
     if (!m_open)
     {
-        return Result(m_db, stmt_ptr(nullptr), Result::kError);
+        return Result(m_db, stmt_ptr(nullptr), kError);
     }
 
     stmt_ptr stmt(m_db);
     query.compile(m_db, *stmt);
-    return stmt ? Result(m_db, std::move(stmt)) : Result(m_db, std::move(stmt), Result::kError);
+    return stmt ? Result(m_db, std::move(stmt)) : Result(m_db, std::move(stmt), kError);
 }
 
 Result Database::run(std::initializer_list<Query>&& queries)
 {
     if (!m_open)
     {
-        return Result(m_db, stmt_ptr(nullptr), Result::kError);
+        return Result(m_db, stmt_ptr(nullptr), kError);
     }
 
     transaction_t t(m_db);
@@ -71,14 +70,14 @@ Result Database::run(std::initializer_list<Query>&& queries)
     {
         if (!query.compile(m_db, *stmt))
         {
-            return Result(m_db, std::move(stmt), Result::kError);
+            return Result(m_db, std::move(stmt), kError);
         }
 
         auto result = Result(m_db, stmt);
         while (result.step()) {}
         if (result.error())
         {
-            return Result(m_db, std::move(stmt), Result::kError);
+            return Result(m_db, std::move(stmt), kError);
         }
 
         sqlite3_reset(stmt.get());

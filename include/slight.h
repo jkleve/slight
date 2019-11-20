@@ -1,12 +1,13 @@
 #ifndef SLIGHT_H
 #define SLIGHT_H
 
-#include <stddef.h>
+#include <cstddef>
 #include <initializer_list>
 #include <string>
 #include <vector>
 
-#define SQLITE_OK 0
+#define SQLITE_OK                             0  /* Successful result */
+#define SQLITE_ERROR                          1  /* Generic error */
 #define SQLITE_OPEN_READONLY         0x00000001  /* Ok for sqlite3_open_v2() */
 #define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for sqlite3_open_v2() */
 #define SQLITE_OPEN_CREATE           0x00000004  /* Ok for sqlite3_open_v2() */
@@ -55,10 +56,12 @@ template<> struct                Typer<kUint>  { typedef uint32_t    Type; };
 template<> struct                Typer<kFloat> { typedef double      Type; };
 template<> struct                Typer<kText>  { typedef const char* Type; };
 
+/// @brief Result
+///
+/// @note This class is used to access the results of a database operation.
+///
 class Result {
 public:
-    static constexpr int kError = 1;
-
     Result(sqlite3* db, stmt_ptr stmt, int error = SQLITE_OK);
     ~Result() = default;
 
@@ -140,8 +143,10 @@ public:
     Result run(std::initializer_list<Query>&& queries);
 
 private:
+    static const int kError = SQLITE_ERROR;
+
     struct transaction_t {
-        transaction_t(sqlite3* db);
+        explicit transaction_t(sqlite3* db);
         ~transaction_t();
         void commit();
     private:
