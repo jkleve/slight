@@ -5,12 +5,13 @@
 namespace slight {
 
 Database::Database(const std::string& path, Access access)
-    : m_db(nullptr)
+    : m_open(false)
+    , m_db(nullptr)
 {
     auto status = sqlite3_open_v2(path.c_str(), &m_db, access, nullptr);
-    if (status != SQLITE_OK)
+    if (status == SQLITE_OK)
     {
-        sqlite3_close(m_db);
+        m_open = true;
     }
 }
 
@@ -47,8 +48,10 @@ Result Database::setSchemaVersion(int version)
 
 Result Database::run(Query&& query)
 {
-    if (!m_db)
+    if (!m_open)
+    {
         return Result(m_db, stmt_ptr(nullptr), Result::kError);
+    }
 
     stmt_ptr stmt(m_db);
     query.compile(m_db, *stmt);
@@ -57,7 +60,7 @@ Result Database::run(Query&& query)
 
 Result Database::run(std::initializer_list<Query>&& queries)
 {
-    if (!m_db)
+    if (!m_open)
     {
         return Result(m_db, stmt_ptr(nullptr), Result::kError);
     }

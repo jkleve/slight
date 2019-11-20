@@ -149,6 +149,7 @@ private:
         const std::string path;
         bool committed;
     };
+    bool m_open;
     sqlite3* m_db;
 };
 
