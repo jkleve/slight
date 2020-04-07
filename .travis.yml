@@ -1,0 +1,25 @@
+os: linux
+language: cpp
+
+matrix:
+  include:
+    - dist: bionic
+      env:
+        - cc=gcc cxx=g++
+
+    - os: osx
+      env:
+        - cc=clang cxx=clang++
+
+before_install:
+  - export CC=${cc}
+  - export CXX=${cxx}
+
+before_script:
+  - mkdir build
+  - cd build
+  - cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=Release -DSLIGHT_BUILD_TESTS=ON ..
+
+script:
+  - cmake --build .
+  - cmake --build . --target test
