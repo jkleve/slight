@@ -84,7 +84,7 @@ int main()
         std::string notes_value = "null";
         if (values.get<slight::kText>(2))
             name_value = values.get<slight::kText>(2);
-        if (values.get<slight::kText>(2))
+        if (values.get<slight::kText>(4))
             notes_value = values.get<slight::kText>(4);
         std::cout << "User: " << name_value <<  " (" << values.get<slight::kInt>(1) << "), age: " <<
             values.get<slight::kInt>(3) << ", notes: " << notes_value << std::endl;
