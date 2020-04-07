@@ -2,6 +2,7 @@
 #define SLIGHT_H
 
 #include <cstddef>
+#include <condition_variable>
 #include <initializer_list>
 #include <mutex>
 #include <string>

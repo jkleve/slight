@@ -8,6 +8,8 @@ option(SLIGHT_BUILD_TESTS "Build tests" ON)
 ##############################################################################
 # sqlite3
 ##############################################################################
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 add_library(sqlite3 sqlite3/sqlite3.c)
 target_compile_definitions(
     sqlite3
@@ -16,6 +18,7 @@ target_compile_definitions(
         SQLITE_OMIT_DEPRECATED
         SQLITE_OMIT_LOAD_EXTENSION
 )
+target_link_libraries(sqlite3 Threads::Threads)
 
 ##############################################################################
 # Library

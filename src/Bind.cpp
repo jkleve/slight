@@ -1,6 +1,7 @@
 #include "slight.h"
 #include <sqlite3.h>
 
+#include <cstring>
 #include <iostream> // @todo remove
 
 namespace slight {

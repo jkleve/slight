@@ -1,5 +1,6 @@
 #include "slight.h"
 #include <sqlite3.h>
+#include <cassert>
 #include <cstdio>
 #include <string>
 
