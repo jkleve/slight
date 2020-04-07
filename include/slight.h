@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,8 @@
 #define SQLITE_OPEN_READWRITE        0x00000002  /* Ok for sqlite3_open_v2() */
 #define SQLITE_OPEN_CREATE           0x00000004  /* Ok for sqlite3_open_v2() */
 
+// @todo would you ever want a transaction where you do an insert, select, update? or something like that
+// where you would want to be iterating on the select results and is that allowed with sqlite3?
 struct sqlite3;
 struct sqlite3_stmt;
 
@@ -20,7 +23,7 @@ namespace slight {
 class Bind;
 class Database;
 class Result;
-class Query;
+class Q;
 
 enum Access {
     kReadOnly = SQLITE_OPEN_READONLY,
@@ -30,7 +33,10 @@ enum Access {
 
 enum ColumnType { kNull, kInt, kInt64, kUint, kFloat, kText, kBlob, kDatetime };
 
+static const int SLIGHT_OK = SQLITE_OK;
+static const int SLIGHT_ERROR = SQLITE_ERROR;
 
+namespace details {
 struct stmt_ptr {
     explicit stmt_ptr(sqlite3* db); // ctor
     stmt_ptr(stmt_ptr&& other) noexcept; // move
@@ -48,6 +54,7 @@ private:
     sqlite3*           db;
     sqlite3_stmt*    stmt;
 };
+} // namespace details
 
 template<ColumnType type> struct Typer {};
 template<> struct                Typer<kInt>   { typedef int32_t     Type; };
@@ -62,14 +69,17 @@ template<> struct                Typer<kText>  { typedef const char* Type; };
 ///
 class Result {
 public:
-    Result(sqlite3* db, stmt_ptr stmt, int error = SQLITE_OK);
+    Result(sqlite3* db, details::stmt_ptr&& stmt, int error = SLIGHT_OK);
+    Result(Result&& other) noexcept; // move
+    Result(const Result& other) = delete; // copy
     ~Result() = default;
 
-    explicit operator bool() const;
+    Result& operator=(const Result& other) = delete; // assignment
 
-    Result&           step();
-    bool              done() const;
-    bool             error() const;
+    Result&           step();       /// Step to the next row
+    bool              done() const; /// No more data
+    bool             ready() const; /// No error and more data
+    bool             error() const; /// Error
     int         error_code() const;
     const char*  error_msg() const;
 
@@ -79,94 +89,129 @@ public:
 private:
     int m_error;
     sqlite3* m_db;
-    stmt_ptr m_stmt;
+    details::stmt_ptr m_stmt;
 };
 
 class Bind {
+    friend Q;
 public:
+    static const int kColumnIndexNotSet = -1;
+
     explicit Bind(int32_t i);
     explicit Bind(int64_t i);
     explicit Bind(uint32_t i);
     explicit Bind(float f);
     explicit Bind(const char* str);
+    Bind(int index, int32_t i);
+    Bind(int index, int64_t i);
+    Bind(int index, uint32_t i);
+    Bind(int index, float f);
+    Bind(int index, const char* str);
     Bind(const char* column, int32_t i);
     Bind(const char* column, int64_t i);
     Bind(const char* column, uint32_t i);
     Bind(const char* column, float f);
     Bind(const char* column, const char* str);
 
-    ColumnType             type() const;
-    int32_t                 i32() const;
-    int64_t                 i64() const;
-    uint32_t                u32() const;
-    float                  real() const;
-    const std::string&      str() const;
-    size_t             str_size() const;
-    const char*           c_str() const;
+    int bind(sqlite3_stmt* stmt, int column) const;
+    int column() const;
+    const char* column_name() const;
 
 private:
+    int m_index;
+    const char* m_column_name;
     ColumnType m_type;
-    int64_t m_i;
-    float m_f;
-    std::string m_str;
+    union {
+        int64_t m_i;
+        float m_f;
+        const char* m_str;
+    };
+    size_t m_str_size;
 };
 
-class Query {
-    friend Database;
+class Q {
 public:
-    explicit Query(std::string&& query);
-    Query(const char* query, Bind&& bind);
-    Query(const char* query, std::initializer_list<Bind>&& binds);
-    Query(std::string&& query, std::initializer_list<Bind>&& binds);
-    ~Query() = default;
+    explicit Q(std::string&& query);
+    Q(const char* query, Bind&& bind);
+    Q(const char* query, const Bind& bind);
+    Q(const char* query, std::initializer_list<Bind>&& binds);
+    Q(std::string&& query, Bind&& bind);
+    Q(std::string&& query, std::initializer_list<Bind>&& binds);
+    ~Q() = default;
 
-    const char* query() const;
-    size_t       size() const;
+    const char* str() const { return m_query.c_str(); }
+    size_t str_size() const { return m_query.size(); }
+    const std::vector<Bind>& binds() const { return m_binds; }
 
 private:
-    bool compile(sqlite3* db, sqlite3_stmt** stmt);
-
-    std::string m_query;
-    std::vector<Bind> m_binds;
+    const std::string m_query;
+    const std::vector<Bind> m_binds;
 };
+
+class ConnectionPool;
 
 class Database {
 public:
-    Database(const std::string& path, Access access);
+    // Database open(ConnectionPool* connection_pool);
+
+    Database(std::string path, Access access);
     virtual ~Database();
+
+    Result check_exists(const std::string& table_name);
 
     Result backup(int page_size); // @todo
     Result backup(const std::string& backup_path, int page_size, int flags); // @todo
-    Result getSchemaVersion();
-    Result setSchemaVersion(int version);
-    Result run(Query&& query);
-    Result run(std::initializer_list<Query>&& queries);
+    Result get_schema_version();
+    Result set_schema_version(uint32_t version);
+    Result start(const char* query);
+    Result start(const char* query, Bind bind);
+    Result start(Q&& query);
+    // Result start(Q&& query, Bind bind);
+    Result run(const char* query);
+    Result run(const char* query, Bind bind);
+    Result run(Q&& query);
+    Result run(std::initializer_list<Q>&& queries);
+
+    // @todo async
+    //Result async(Q&& query, std::function<void(Result)> callback);
 
 private:
-    static const int kError = SQLITE_ERROR;
+    Database(sqlite3* db);
+    sqlite3* getConnection();
 
-    struct transaction_t {
-        explicit transaction_t(sqlite3* db);
-        ~transaction_t();
-        void commit();
-    private:
-        sqlite3* db;
-        const std::string path;
-        bool committed;
-    };
+    std::string m_path;
     bool m_open;
     sqlite3* m_db;
+    ConnectionPool* m_connection_pool;
+};
+
+class ConnectionPool {
+public:
+    ConnectionPool(std::string path, Access access, size_t max_connections);
+    ~ConnectionPool();
+
+    sqlite3* pop();
+    void push(sqlite3* connection);
+
+private:
+    const std::string m_path;
+    const Access m_access;
+    const size_t m_max_connections;
+    size_t m_num_connections;
+    mutable std::mutex m_mutex;
+    mutable std::condition_variable m_connection_available;
+    std::vector<sqlite3*> m_pool;
 };
 
 } // namespace slight
 
-#ifdef SLIGHT_HEADER
-#include "../src/Bind.cpp"
-#include "../src/Database.cpp"
-#include "../src/Query.cpp"
-#include "../src/Result.cpp"
-#include "../src/stmpt_ptr.cpp"
-#include "../src/utils.cpp"
-#endif
+//#ifdef SLIGHT_HEADER
+//#include "../src/Bind.cpp"
+//#include "../src/Database.cpp"
+//#include "../src/Query.cpp"
+//#include "../src/Result.cpp"
+//#include "../src/stmpt_ptr.cpp"
+//#include "../src/utils.cpp"
+//#endif
 
 #endif // SLIGHT_H

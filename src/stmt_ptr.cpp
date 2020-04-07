@@ -2,6 +2,7 @@
 #include <sqlite3.h>
 
 namespace slight {
+namespace details {
 
 stmt_ptr::stmt_ptr(sqlite3* db) : finalize(true), db(db), stmt(nullptr) {}
 
@@ -14,9 +15,12 @@ stmt_ptr::stmt_ptr(const stmt_ptr& other) : finalize(false), db(other.db), stmt(
 
 stmt_ptr& stmt_ptr::operator=(const stmt_ptr& other)
 {
-    finalize = false;
-    db = other.db;
-    stmt = other.stmt;
+    if (this != &other)
+    {
+        finalize = false;
+        db = other.db;
+        stmt = other.stmt;
+    }
     return *this;
 }
 
@@ -33,4 +37,5 @@ sqlite3_stmt** stmt_ptr::operator*() { return &stmt; }
 stmt_ptr::operator bool() const      { return  stmt; }
 sqlite3_stmt* stmt_ptr::get() const  { return  stmt; }
 
+} // namespace details
 } // namespace slight

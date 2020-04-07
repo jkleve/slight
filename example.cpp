@@ -2,13 +2,13 @@
 #include <iostream>
 
 using slight::Bind;
-using slight::Query;
+using slight::Q;
 
 int main()
 {
-    /*
-     * user input
-     */
+    //
+    // user input
+    //
     uint32_t id = 0;
     uint32_t age = 0;
     std::string id_str, age_str, name, notes;
@@ -43,20 +43,20 @@ int main()
     std::cout << "Enter notes: ";
     std::getline(std::cin, notes);
 
-    /*
-     * slight demo
-     */
+    //
+    // slight demo
+    //
     slight::Database db("my.db", slight::Access::kCreateReadWrite);
 
     auto create = db.run({
-        Query("CREATE TABLE IF NOT EXISTS my_table_name ("
-            "id PRIMARY KEY,"
-            "name VARCHAR(200),"
-            "age INTEGER,"
-            "notes TEXT)"),
-        Query("CREATE TABLE IF NOT EXISTS my_other_table ("
-            "id PRIMARY KEY,"
-            "name VARCHAR(200))")
+        Q("CREATE TABLE IF NOT EXISTS my_table_name ("
+          "id PRIMARY KEY,"
+          "name VARCHAR(200),"
+          "age INTEGER,"
+          "notes TEXT)"),
+        Q("CREATE TABLE IF NOT EXISTS my_other_table ("
+          "id PRIMARY KEY,"
+          "name VARCHAR(200))")
     });
 
     if (create.error())
@@ -66,9 +66,9 @@ int main()
     }
 
     auto insert = db.run(
-        Query("INSERT INTO my_table_name VALUES (?, ?, ?, ?)",
-            {Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())})
-    ).step();
+        Q("INSERT INTO my_table_name VALUES (?, ?, ?, ?)",
+          {Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())})
+    );
 
     if (insert.error())
     {
@@ -77,11 +77,18 @@ int main()
     }
 
     std::cout << "Contents are:" << std::endl;
-    auto values = db.run(Query("SELECT * FROM my_table_name"));
-    while (values.step())
+    auto values = db.start(Q("SELECT * FROM my_table_name"));
+    while (values.ready())
     {
-        std::cout << "User: " << values.get<slight::kText>(2) <<  " (" << values.get<slight::kInt>(1) << "), age: " <<
-            values.get<slight::kInt>(3) << ", notes: " << values.get<slight::kText>(4) << std::endl;
+        std::string name_value = "null";
+        std::string notes_value = "null";
+        if (values.get<slight::kText>(2))
+            name_value = values.get<slight::kText>(2);
+        if (values.get<slight::kText>(2))
+            notes_value = values.get<slight::kText>(4);
+        std::cout << "User: " << name_value <<  " (" << values.get<slight::kInt>(1) << "), age: " <<
+            values.get<slight::kInt>(3) << ", notes: " << notes_value << std::endl;
+        values.step();
     }
 
     if (values.error())
@@ -90,12 +97,12 @@ int main()
         return -1;
     }
 
-    auto err = db.run(Query("slight MALFORMED query")).step();
+    auto err = db.run(Q("slight MALFORMED query"));
     std::cout << err.error_code() << ": " << err.error_msg();
 
     auto more_types = db.run(
-        Query("INSERT INTO my_table_name VALUES (:id, ?, :id, ?)",
-            Bind(":id", 69))).step();
+        Q("INSERT INTO my_table_name VALUES (:id, ?, :id, ?)",
+            Bind(":id", 83)));
 
     return 0;
 }
