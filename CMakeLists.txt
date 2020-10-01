@@ -24,11 +24,7 @@ target_link_libraries(sqlite3 Threads::Threads)
 # Library
 ##############################################################################
 add_library(slight
-    src/Bind.cpp
-    src/Database.cpp
-    src/Result.cpp
-    src/Query.cpp
-    src/stmt_ptr.cpp
+    src/slight.cpp
 )
 
 target_include_directories(slight
