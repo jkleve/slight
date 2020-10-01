@@ -10,6 +10,7 @@ struct sqlite3;
 
 namespace slight {
 
+// @todo ColumnType & Bind::DataType are the same mapping. combine?
 enum ColumnType { nil, i32, i64, u32, flt, text, blob, datetime };
 
 template<ColumnType type> struct Typer {};

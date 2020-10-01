@@ -1,6 +1,9 @@
 #include "slight.h"
 #include "sqlite3.h"
 
+#include <cassert> // assert
+#include <cstring> // strlen
+
 namespace slight {
 
 // @todo lol this ain't gonna work. this is exactly the same problem we ran into last time where we want Statement
@@ -24,6 +27,52 @@ struct Statement {
     sqlite3* db;
     sqlite3_stmt* stmt;
 };
+
+Bind::Bind(int32_t i)
+    : type(Type::empty)
+    , data_type(DataType::i32)
+    , i(static_cast<int64_t>(i)) {}
+Bind::Bind(int64_t i)
+    : type(Type::empty)
+    , data_type(DataType::i64)
+    , i(i) {}
+Bind::Bind(uint32_t i)
+    : type(Type::empty)
+    , data_type(DataType::u32)
+    , i(static_cast<int64_t>(i)) {}
+Bind::Bind(float f)
+    : type(Type::empty)
+    , data_type(DataType::flt)
+    , f(f) {}
+Bind::Bind(const char* str)
+    : type(Type::empty)
+    , data_type(DataType::str)
+    , str(str) {}
+Bind::Bind(const char* column, int32_t i)
+    : type(Type::column)
+    , column(column)
+    , data_type(DataType::i32)
+    , i(static_cast<int64_t>(i)) {}
+Bind::Bind(const char* column, int64_t i)
+    : type(Type::column)
+    , column(column)
+    , data_type(DataType::i64)
+    , i(i) {}
+Bind::Bind(const char* column, uint32_t i)
+    : type(Type::column)
+    , column(column)
+    , data_type(DataType::u32)
+    , i(static_cast<int64_t>(i)) {}
+Bind::Bind(const char* column, float f)
+    : type(Type::column)
+    , column(column)
+    , data_type(DataType::flt)
+    , f(f) {}
+Bind::Bind(const char* column, const char* str)
+    : type(Type::column)
+    , column(column)
+    , data_type(DataType::str)
+    , str(str) {}
 
 void reset(Statement& statement)
 {
