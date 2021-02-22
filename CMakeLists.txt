@@ -34,8 +34,8 @@ target_include_directories(slight
 target_link_libraries(slight sqlite3)
 
 # @todo update examples
-# add_executable(example example.cpp)
-# target_link_libraries(example slight)
+add_executable(example example.cpp)
+target_link_libraries(example slight)
 
 ##############################################################################
 # Tests

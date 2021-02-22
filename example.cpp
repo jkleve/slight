@@ -1,9 +1,6 @@
 #include "slight.h"
 #include <iostream>
 
-using slight::Bind;
-using slight::Q;
-
 int main()
 {
     //
@@ -46,20 +43,32 @@ int main()
     //
     // slight demo
     //
-    slight::Database db("my.db", slight::Access::kCreateReadWrite);
+    using slight::Bind;
+    using slight::Database;
 
-    auto create = db.run({
-        Q("CREATE TABLE IF NOT EXISTS my_table_name ("
-          "id PRIMARY KEY,"
-          "name VARCHAR(200),"
-          "age INTEGER,"
-          "notes TEXT)"),
-        Q("CREATE TABLE IF NOT EXISTS my_other_table ("
-          "id PRIMARY KEY,"
-          "name VARCHAR(200))")
-    });
+    auto db = Database::open_create_read_write("my.db");
 
-    if (create.error())
+    auto create_my_table_stmt = db.prepare(
+        "CREATE TABLE IF NOT EXISTS my_table_name ("
+        "id PRIMARY KEY,"
+        "name VARCHAR(200),"
+        "age INTEGER,"
+        "notes TEXT)");
+    auto create_other_table_stmt = db.prepare(
+        "CREATE TABLE IF NOT EXISTS my_other_table "
+        "(id PRIMARY KEY, name VARCHAR(200))");
+    auto insert_stmt = db.prepare(
+        "INSERT INTO my_table_name VALUES (?, ?, ?, ?)",
+        {Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())}
+    );
+    auto more_types = db.prepare(
+            "INSERT INTO my_table_name VALUES (:id, ?, :id, ?)",
+            Bind(":id", 83));
+    auto select_stmt = db.prepare("SELECT * FROM my_table_name");
+    auto select_one_stmt = db.prepare("SELECT name FROM my_table_name");
+    auto err = db.prepare("slight MALFORMED query");
+
+    if (did_error(*create_my_table_stmt))
     {
         std::cout << "Create table error " << create.error_code() << ": " << create.error_msg() << std::endl;
         return -1;
@@ -77,18 +86,23 @@ int main()
     }
 
     std::cout << "Contents are:" << std::endl;
-    auto values = db.start(Q("SELECT * FROM my_table_name"));
-    while (values.ready())
+    while (slight::is_ready(*select_stmt))
     {
         std::string name_value = "null";
         std::string notes_value = "null";
-        if (values.get<slight::kText>(2))
-            name_value = values.get<slight::kText>(2);
-        if (values.get<slight::kText>(4))
-            notes_value = values.get<slight::kText>(4);
-        std::cout << "User: " << name_value <<  " (" << values.get<slight::kInt>(1) << "), age: " <<
-            values.get<slight::kInt>(3) << ", notes: " << notes_value << std::endl;
-        values.step();
+        if (slight::get<slight::text>(*select_stmt, 2))
+            name_value = slight::get<slight::text>(*select_stmt, 2);
+        if (slight::get<slight::text>(*select_stmt, 4))
+            notes_value = slight::get<slight::text>(*select_stmt, 4);
+        std::cout << "User: " << name_value <<  " (" << slight::get<slight::i32>(*select_stmt, 1) << "), age: " <<
+            slight::get<slight::i32>(*select_stmt, 3) << ", notes: " << notes_value << std::endl;
+        slight::step(*select_stmt);
+    }
+
+    while (slight::is_ready(*select_one_stmt))
+    {
+        slight::get<slight::text>(*select_stmt, 1);
+        slight::step(*select_stmt);
     }
 
     if (values.error())
@@ -97,8 +111,7 @@ int main()
         return -1;
     }
 
-    auto err = db.run(Q("slight MALFORMED query"));
-    std::cout << err.error_code() << ": " << err.error_msg();
+    std::cout << slight::error_code(*err) << ": " << slight::error_msg(*err);
 
     auto more_types = db.run(
         Q("INSERT INTO my_table_name VALUES (:id, ?, :id, ?)",

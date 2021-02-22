@@ -31,6 +31,11 @@ struct Bind final {
     explicit Bind(uint32_t value);
     explicit Bind(float value);
     explicit Bind(const char* value);
+    Bind(int index, int32_t value);
+    Bind(int index, int64_t value);
+    Bind(int index, uint32_t value);
+    Bind(int index, float value);
+    Bind(int index, const char* value);
     Bind(const char* column, int32_t value);
     Bind(const char* column, int64_t value);
     Bind(const char* column, uint32_t value);
@@ -75,8 +80,8 @@ public:
     std::shared_ptr<Statement> set_schema_version(SchemaVersion version);
 
     std::shared_ptr<Statement> prepare(const std::string& statement);
-    //Statement prepare(const char* statement, const Bind& bind);
-    //Statement prepare(const char* statement, std::initializer_list<const Bind&>&& binds);
+    std::shared_ptr<Statement> prepare(const std::string& statement, const Bind& bind);
+    std::shared_ptr<Statement> prepare(const std::string& statement, std::initializer_list<const Bind>&& binds);
     /// @feature: multiple queries at once
 
     // Statement execute(const char* query);
@@ -98,11 +103,13 @@ private:
 };
 
 /// Bind
-void bind(Statement& statement, Bind bind);
+void bind(Statement& statement, const Bind& bind);
 void bind(Statement& statement, const std::vector<Bind>& bind);
+void bind(Statement& statement, std::initializer_list<const Bind&>&& bind);
 
 /// Checks
 bool is_ready(const Statement& statement);  /// Data ready and no errors
+bool has_row(const Statement& statement);   /// Data ready to be read via get
 bool is_done(const Statement& statement);   /// No more data
 bool did_error(const Statement& statement); /// Error
 

@@ -171,12 +171,17 @@ TEST_F(TestSlight, set_schema_version_max)
     EXPECT_EQ(slight::get<slight::i32>(*get_version, 1), 0);
 }
 
-TEST_F(TestSlight, insertValues)
+TEST_F(TestSlight, insert_values)
 {
     auto create = db->prepare(
         "CREATE TABLE test(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slight_int32 INT, "
         "slight_uint32 INT, slight_int64 INT, slight_float FLOAT)"
     );
+    EXPECT_TRUE(slight::is_ready(*create));
+    EXPECT_FALSE(slight::is_done(*create));
+    EXPECT_FALSE(slight::did_error(*create));
+
+    slight::step(*create);
     EXPECT_FALSE(slight::is_ready(*create));
     EXPECT_TRUE(slight::is_done(*create));
     EXPECT_FALSE(slight::did_error(*create));
@@ -187,12 +192,24 @@ TEST_F(TestSlight, insertValues)
         "('name2', 2147483647, 4294967295, 9.223372036854776e18, 189324123401393032.291302),"
         "('name3', -2147483648, 0, -9.223372036854776e18, -189324123401393032.291302)"
     );
+    EXPECT_TRUE(slight::is_ready(*insert));
+    EXPECT_FALSE(slight::is_done(*insert));
+    EXPECT_FALSE(slight::did_error(*insert));
+
+    slight::step(*insert);
     EXPECT_FALSE(slight::is_ready(*insert));
     EXPECT_TRUE(slight::is_done(*insert));
     EXPECT_FALSE(slight::did_error(*insert));
 
     auto select = db->prepare("SELECT * FROM test");
     EXPECT_TRUE(slight::is_ready(*select));
+    EXPECT_FALSE(slight::has_row(*select));
+    EXPECT_FALSE(slight::is_done(*select));
+    EXPECT_FALSE(slight::did_error(*select));
+
+    slight::step(*select);
+    EXPECT_TRUE(slight::is_ready(*select));
+    EXPECT_TRUE(slight::has_row(*select));
     EXPECT_FALSE(slight::is_done(*select));
     EXPECT_FALSE(slight::did_error(*select));
 
@@ -205,6 +222,7 @@ TEST_F(TestSlight, insertValues)
 
     slight::step(*select);
     EXPECT_TRUE(slight::is_ready(*select));
+    EXPECT_TRUE(slight::has_row(*select));
     EXPECT_FALSE(slight::is_done(*select));
     EXPECT_FALSE(slight::did_error(*select));
 
@@ -217,6 +235,7 @@ TEST_F(TestSlight, insertValues)
 
     slight::step(*select);
     EXPECT_TRUE(slight::is_ready(*select));
+    EXPECT_TRUE(slight::has_row(*select));
     EXPECT_FALSE(slight::is_done(*select));
     EXPECT_FALSE(slight::did_error(*select));
 
@@ -229,8 +248,15 @@ TEST_F(TestSlight, insertValues)
 
     slight::step(*select);
     EXPECT_FALSE(slight::is_ready(*select));
+    EXPECT_FALSE(slight::has_row(*select));
     EXPECT_TRUE(slight::is_done(*select));
     EXPECT_FALSE(slight::did_error(*select));
+}
+
+TEST_F(TestSlight, bind)
+{
+    // expect:
+    // -
 }
 
 //TEST_F(TestSlight, insertValuesIteratively)

@@ -15,7 +15,7 @@ namespace slight {
 struct Statement {
     Statement(sqlite3* db, std::string statement)
         : statement(std::move(statement))
-        , sqlite_error(sqlite3_errcode(db))
+        , sqlite_errcode(sqlite3_errcode(db))
         , db(db)
         , stmt()
     {}
@@ -23,7 +23,7 @@ struct Statement {
 
     const std::string statement;
 
-    int sqlite_error;
+    int sqlite_errcode;
     sqlite3* db;
     sqlite3_stmt* stmt;
 };
@@ -48,10 +48,10 @@ Bind::Bind(const char* str)
     : type(Type::empty)
     , data_type(DataType::str)
     , str(str) {}
-Bind::Bind(const char* column, int32_t i)
-    : type(Type::column)
-    , column(column)
-    , data_type(DataType::i32)
+Bind::Bind(int index, int32_t value)
+    : type(Type::index)
+    , data_type(int32_t value)
+    , i(value) {}
     , i(static_cast<int64_t>(i)) {}
 Bind::Bind(const char* column, int64_t i)
     : type(Type::column)
@@ -107,11 +107,16 @@ bool is_ready(const Statement& statement)
     return !(did_error(statement) || is_done(statement));
 }
 
+bool has_row(const Statement& statement)
+{
+    return statement.sqlite_errcode == SQLITE_ROW;
+}
+
 void step(Statement& statement)
 {
     if (!did_error(statement))
     {
-        statement.sqlite_error = sqlite3_step(statement.stmt);
+        statement.sqlite_errcode = sqlite3_step(statement.stmt);
     }
 }
 
@@ -122,21 +127,24 @@ void bind(Statement& statement, Bind bind)
     {
         index = sqlite3_bind_parameter_index(statement.stmt, bind.column);
     }
+    else if (bind.type == Bind::Type::index)
+    {
+        index = bind.index;
+    }
 
     switch (bind.data_type) {
         case Bind::DataType::i32:
-            statement.sqlite_error = sqlite3_bind_int(statement.stmt, index, bind.i);
+            statement.sqlite_errcode = sqlite3_bind_int(statement.stmt, index, bind.i);
             break;
         case Bind::DataType::i64:
         case Bind::DataType::u32:
-            statement.sqlite_error = sqlite3_bind_int64(statement.stmt, index, bind.i);
-            statement.sqlite_error = sqlite3_bind_int64(statement.stmt, index, bind.i);
+            statement.sqlite_errcode = sqlite3_bind_int64(statement.stmt, index, bind.i);
             break;
         case Bind::DataType::flt:
-            statement.sqlite_error = sqlite3_bind_double(statement.stmt, index, bind.f);
+            statement.sqlite_errcode = sqlite3_bind_double(statement.stmt, index, bind.f);
             break;
         case Bind::DataType::str:
-            statement.sqlite_error = sqlite3_bind_text(statement.stmt, index, bind.str, strlen(bind.str), nullptr);
+            statement.sqlite_errcode = sqlite3_bind_text(statement.stmt, index, bind.str, strlen(bind.str), nullptr);
             break;
     }
 }
@@ -247,7 +255,40 @@ std::shared_ptr<Statement> Database::prepare(const std::string& statement)
     auto stmt = std::make_shared<Statement>(db, statement);
     sqlite3_prepare_v3(db, statement.c_str(), statement.size(), 0, &stmt->stmt, nullptr);
 
-    assert(sqlite3_bind_parameter_count(stmt->stmt) == 0);
+    stmt->sqlite_errcode = sqlite3_errcode(db);
+
+    assert(sqlite3_bind_parameter_count(stmt->stmt) == 0); // @todo verify this should be removed
+    return stmt;
+}
+
+std::shared_ptr<Statement> Database::prepare(const std::string& statement, const Bind& bind)
+{
+    assert(!statement.empty());
+
+    auto stmt = std::make_shared<Statement>(db, statement);
+    sqlite3_prepare_v3(db, statement.c_str(), statement.size(), 0, &stmt->stmt, nullptr);
+
+    ::slight::bind(*stmt, bind);
+
+    stmt->sqlite_errcode = sqlite3_errcode(db);
+
+    return stmt;
+}
+
+std::shared_ptr<Statement> Database::prepare(const std::string& statement, std::initializer_list<const Bind>&& binds)
+{
+    assert(!statement.empty());
+
+    auto stmt = std::make_shared<Statement>(db, statement);
+    sqlite3_prepare_v3(db, statement.c_str(), statement.size(), 0, &stmt->stmt, nullptr);
+
+    for (auto it = binds.begin(); !is_done(*stmt) && !did_error(*stmt); it++)
+    {
+        bind(*stmt, *it);
+    }
+
+    stmt->sqlite_errcode = sqlite3_errcode(db);
+
     return stmt;
 }
 
@@ -255,20 +296,7 @@ std::shared_ptr<Statement> Database::get_schema_version()
 {
     auto stmt = prepare("PRAGMA user_version");
     step(*stmt);
-    return std::move(stmt);
-}
-
-std::shared_ptr<Statement> Database::set_schema_version(SchemaVersion version)
-{
-    static const size_t max_size = 31; // 20 for PRAGMA, 10 for int, 1 for null char
-    char statement[max_size];
-    snprintf(statement, max_size, "PRAGMA user_version=%d", version);
-    auto stmt = prepare(statement);
-    if (is_ready(*stmt))
-    {
-        step(*stmt);
-    }
-    return std::move(stmt);
+    return stmt value;
 }
 
 } // namespace slight
