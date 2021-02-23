@@ -21,29 +21,35 @@ template<> struct                Typer<flt>  { typedef double      Type; };
 template<> struct                Typer<text> { typedef const char* Type; };
 
 struct Bind;
-struct Statement;
 
-/// Bind
-void bind(Statement& statement, const Bind& bind);
-void bind(Statement& statement, std::initializer_list<const Bind>&& bind);
+struct Statement {
+    struct details;
 
-/// Checks
-bool is_ready(const Statement& statement);  /// Data ready and no errors
-bool has_row(const Statement& statement);   /// Data ready to be read via get
-bool is_done(const Statement& statement);   /// No more data
-bool did_error(const Statement& statement); /// Error
+    explicit Statement(details* me) : me(me) {}
+    ~Statement() = default;
 
-/// Modifiers
-void step(Statement& statement);
-void reset(Statement& statement);
+    bool ready() const;
+    bool has_row() const;
+    bool done() const;
+    bool error() const;
+    int error_code() const;
+    const std::string& error_msg() const;
+    std::string error_detail() const;
 
-/// Access
-template<ColumnType type>
-typename Typer<type>::Type get(Statement& statement, int index);
+    void bind(const Bind& bind);
+    void bind(std::initializer_list<const Bind>&& binds);
 
-/// Errors
-int error_code(const Statement& statement);
-const char* error_msg(const Statement& statement);
+    void step();
+    void reset();
+
+    template<ColumnType type>
+    typename Typer<type>::Type get(int index);
+
+    void for_each(const std::function<bool(Statement* stmt)>& fn);
+
+private:
+    details* me;
+};
 
 struct Bind final {
     enum class Type { empty, index, column };
@@ -82,7 +88,8 @@ struct Bind final {
 
 class Database final {
 public:
-    using SchemaVersion = uint32_t;
+    struct details;
+    using SchemaVersion = std::uint32_t;
 
     static Database open_read_only(const std::string& path);
     static Database open_read_write(const std::string& path);
@@ -91,23 +98,26 @@ public:
     static std::unique_ptr<Database> make_read_write(const std::string& path);
     static std::unique_ptr<Database> make_create_read_write(const std::string& path);
 
-    ~Database();
+    explicit Database(details* me) : me(me) {}
+    ~Database() = default;
+
+    std::shared_ptr<Statement> prepare(const std::string& statement);
+    // should i have a prepare_new_connection so statements don't use the same db connection?
 
     std::shared_ptr<Statement> get_schema_version();
     std::shared_ptr<Statement> set_schema_version(SchemaVersion version);
 
-    std::shared_ptr<Statement> prepare(const std::string& statement);
+    /// @brief Path to database on disk.
+    const std::string& path() const;
 
-    const std::string& path;
-    const bool opened;
-    const std::string error;
+    /// @brief Indication that the database was opened successfully.
+    bool opened() const;
+
+    /// @brief Error message if the database failed to open.
+    const std::string& error_msg() const;
 
 private:
-    Database(const std::string& path, bool opened, sqlite3* db);
-    static Database open_db(const std::string& path, int access);
-    static std::unique_ptr<Database> make_db(const std::string& path, int access);
-
-    sqlite3* db;
+    details* me;
 };
 
 } // namespace slight

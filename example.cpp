@@ -1,13 +1,17 @@
-#include "slight.h"
+#include <slight.h>
+
+#include <cassert>
+#include <cstdint>
 #include <iostream>
+#include <string>
 
 int main()
 {
     //
     // user input
     //
-    uint32_t id = 0;
-    uint32_t age = 0;
+    std::uint32_t id = 0;
+    std::uint32_t age = 0;
     std::string id_str, age_str, name, notes;
 
     std::cout << "Enter id: ";
@@ -51,83 +55,66 @@ int main()
     auto create_my_table_stmt = db.prepare(
         "CREATE TABLE IF NOT EXISTS my_table_name ("
         "id PRIMARY KEY,"
-        "name VARCHAR(200),"
+        "name VARCHAR(200) NOT NULL,"
         "age INTEGER,"
-        "notes TEXT)");
+        "notes TEXT NOT NULL)");
     auto create_other_table_stmt = db.prepare(
         "CREATE TABLE IF NOT EXISTS my_other_table "
-        "(id PRIMARY KEY, name VARCHAR(200))");
+        "(id PRIMARY KEY, name VARCHAR(200) NOT NULL)");
     auto insert_stmt = db.prepare(
-        "INSERT INTO my_table_name VALUES (?, ?, ?, ?)"
-        //{Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())}
-    );
+        "INSERT INTO my_table_name VALUES (?, ?, ?, ?)");
     auto more_types = db.prepare(
-            "INSERT INTO my_table_name VALUES (:id, ?, :id, ?)");
-            //Bind(":id", 83));
+        "INSERT INTO my_table_name VALUES (:id, ?, :id, ?)");
     auto select_stmt = db.prepare("SELECT * FROM my_table_name");
     auto select_name_stmt = db.prepare("SELECT name FROM my_table_name");
     auto err = db.prepare("slight MALFORMED query");
 
-    slight::step(*create_my_table_stmt);
-    assert(!did_error(*create_my_table_stmt));
+    create_my_table_stmt->step();
+    assert(!create_my_table_stmt->error());
 
-    slight::step(*create_other_table_stmt);
-    assert(!did_error(*create_other_table_stmt));
+    create_other_table_stmt->step();
+    assert(!create_other_table_stmt->error());
 
-    if (slight::is_ready(*insert_stmt))
+    assert(insert_stmt->ready());
+    insert_stmt->bind({Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())});
+    insert_stmt->step();
+
+    if (insert_stmt->error())
     {
-        slight::bind(*insert_stmt, {Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())});
-        slight::step(*insert_stmt);
+        std::cout << insert_stmt->error_detail() << std::endl;
+        return -1;
     }
-    else
-    {
-        std::cout << slight::error_msg(*insert_stmt) << std::endl;
-    }
-    assert(!slight::did_error(*insert_stmt));
 
     std::cout << "Contents are:" << std::endl;
-    slight::step(*select_stmt);
-    while (slight::has_row(*select_stmt))
-    {
-        auto user_id = slight::get<slight::i32>(*select_stmt, 1);
-        auto user_name = slight::get<slight::text>(*select_stmt, 2);
-        auto user_age = slight::get<slight::i32>(*select_stmt, 3);
-        auto user_notes = slight::get<slight::text>(*select_stmt, 4);
+    select_stmt->for_each([](slight::Statement* stmt) {
+        auto user_id = stmt->get<slight::i32>(1);
+        auto user_name = stmt->get<slight::text>(2);
+        auto user_age = stmt->get<slight::i32>(3);
+        auto user_notes = stmt->get<slight::text>(4);
 
         std::cout <<
-            "User: id (" << user_id << "), " <<
-            "name: " << user_name << ", " <<
-            "age: " << user_age << ", " <<
-            "notes: " << user_notes << std::endl;
-        slight::step(*select_stmt);
-    }
+                  "User: id (" << user_id << "), " <<
+                  "name: " << user_name << ", " <<
+                  "age: " << user_age << ", " <<
+                  "notes: " << user_notes << std::endl;
+
+        return !stmt->error();
+    });
 
     std::cout << "All names:" << std::endl;
-    slight::step(*select_name_stmt);
-    while (slight::has_row(*select_name_stmt))
-    {
-        std::cout << slight::get<slight::text>(*select_name_stmt, 1) << std::endl;
-        slight::step(*select_name_stmt);
-    }
+    select_name_stmt->for_each([](slight::Statement* stmt) {
+        std::cout << stmt->get<slight::text>(1) << std::endl;
+        return !stmt->error();
+    });
 
-    assert(!slight::did_error(*select_name_stmt));
-    slight::reset(*select_name_stmt);
-
+    select_name_stmt->reset();
     std::cout << "All names again:" << std::endl;
-    slight::step(*select_name_stmt);
-    while (slight::has_row(*select_name_stmt))
-    {
-        std::cout << slight::get<slight::text>(*select_name_stmt, 1) << std::endl;
-        slight::step(*select_name_stmt);
-    }
+    select_name_stmt->for_each([](slight::Statement* stmt) {
+        std::cout << stmt->get<slight::text>(1) << std::endl;
+        return !stmt->error();
+    });
 
-    assert(!slight::did_error(*select_name_stmt));
-
-    slight::step(*err);
-    std::cout << slight::error_code(*err) << ": " << slight::error_msg(*err);
-
-    slight::step(*more_types);
-    assert(!slight::did_error(*more_types));
+    std::cout << err->error_code() << ": " << err->error_msg();
 
     return 0;
 }

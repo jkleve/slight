@@ -6,27 +6,135 @@
 
 namespace slight {
 
-// @todo lol this ain't gonna work. this is exactly the same problem we ran into last time where we want Statement
-// @todo to be private but give users access to state changing code to modify statement. we need an opaque reference.
 /// @brief Statement
 ///
 /// @note This class is used to access the results of a database operation.
 ///
-struct Statement {
-    Statement(sqlite3* db, std::string statement)
+struct Statement::details {
+    details(sqlite3* db, std::string statement)
         : statement(std::move(statement))
         , sqlite_errcode(sqlite3_errcode(db))
         , db(db)
-        , stmt()
-    {}
-    ~Statement() { sqlite3_finalize(stmt); }
+        , stmt() {}
+    ~details() { sqlite3_finalize(stmt); }
 
     const std::string statement;
 
     int sqlite_errcode;
+    std::string sqlite_errmsg;
     sqlite3* db;
     sqlite3_stmt* stmt;
 };
+
+bool Statement::ready() const { return !(done() || error()); }
+bool Statement::has_row() const { return me->sqlite_errcode == SQLITE_ROW; }
+bool Statement::done() const { return me->sqlite_errcode == SQLITE_DONE; }
+bool Statement::error() const
+{
+    return
+        me->sqlite_errcode != SQLITE_OK &&
+        me->sqlite_errcode != SQLITE_ROW &&
+        me->sqlite_errcode != SQLITE_DONE;
+}
+int Statement::error_code() const { return me->sqlite_errcode; }
+const std::string& Statement::error_msg() const { return me->sqlite_errmsg; }
+std::string Statement::error_detail() const { return "\"" + me->statement + "\" - " + error_msg(); }
+
+int sqlite_bind(sqlite3_stmt* stmt, const Bind& bind, int index)
+{
+    assert(index > 0);
+    switch (bind.data_type) {
+        case Bind::DataType::i32:
+            return sqlite3_bind_int(stmt, index, bind.i);
+        case Bind::DataType::i64:
+        case Bind::DataType::u32:
+            return sqlite3_bind_int64(stmt, index, bind.i);
+        case Bind::DataType::flt:
+            return sqlite3_bind_double(stmt, index, bind.f);
+        case Bind::DataType::str:
+            return sqlite3_bind_text(stmt, index, bind.str, strlen(bind.str), nullptr);
+    }
+}
+
+void Statement::bind(const Bind& b)
+{
+    int index = 0;
+
+    if (b.type == Bind::Type::column)
+    {
+        index = sqlite3_bind_parameter_index(me->stmt, b.column);
+    }
+    else if (b.type == Bind::Type::index)
+    {
+        index = b.index;
+    }
+    else
+    {
+        index++;
+    }
+
+    me->sqlite_errcode = sqlite_bind(me->stmt, b, index);
+}
+
+void Statement::bind(std::initializer_list<const Bind>&& binds)
+{
+    int index = 0;
+    for (auto b : binds)
+    {
+        if (error())
+            break;
+
+        switch (b.type) {
+            case Bind::Type::column:
+                index = sqlite3_bind_parameter_index(me->stmt, b.column);
+                break;
+            case Bind::Type::index:
+                index = b.index;
+                break;
+            default:
+                index++;
+                break;
+        }
+
+        sqlite_bind(me->stmt, b, index);
+    }
+}
+
+void Statement::step()
+{
+    if (!error())
+    {
+        me->sqlite_errcode = sqlite3_step(me->stmt);
+        if (error())
+            me->sqlite_errmsg = sqlite3_errmsg(me->db);
+    }
+}
+
+void Statement::reset() { sqlite3_reset(me->stmt); }
+
+template<>
+Typer<i32>::Type Statement::get<i32>(int index) { return sqlite3_column_int(me->stmt, index - 1); }
+
+template<>
+Typer<i64>::Type Statement::get<i64>(int index) { return sqlite3_column_int64(me->stmt, index - 1); }
+
+template<>
+Typer<u32>::Type Statement::get<u32>(int index)
+    { return static_cast<Typer<u32>::Type>(sqlite3_column_int64(me->stmt, index - 1)); }
+
+template<>
+Typer<flt>::Type Statement::get<flt>(int index)
+    { return static_cast<Typer<flt>::Type>(sqlite3_column_double(me->stmt, index - 1)); }
+
+template<>
+Typer<text>::Type Statement::get<text>(int index)
+    { return reinterpret_cast<Typer<text>::Type>(sqlite3_column_text(me->stmt, index - 1)); }
+
+void Statement::for_each(const std::function<bool(Statement*)>& fn)
+{
+    for (step(); has_row(); step())
+        fn(this);
+}
 
 Bind::Bind(int32_t i)
     : type(Type::empty)
@@ -99,213 +207,64 @@ Bind::Bind(const char* column, const char* str)
     , data_type(DataType::str)
     , str(str) {}
 
-void reset(Statement& statement)
-{
-    sqlite3_reset(statement.stmt);
-}
-
-bool is_done(const Statement& statement)
-{
-    return statement.sqlite_errcode == SQLITE_DONE;
-}
-
-bool did_error(const Statement& statement)
-{
-    return
-        statement.sqlite_errcode != SQLITE_OK &&
-        statement.sqlite_errcode != SQLITE_ROW &&
-        statement.sqlite_errcode != SQLITE_DONE;
-}
-
-int error_code(const Statement& statement)
-{
-    return sqlite3_errcode(statement.db);
-}
-
-const char* error_msg(const Statement& statement)
-{
-    return sqlite3_errmsg(statement.db);
-}
-
-bool is_ready(const Statement& statement)
-{
-    return !(did_error(statement) || is_done(statement));
-}
-
-bool has_row(const Statement& statement)
-{
-    return statement.sqlite_errcode == SQLITE_ROW;
-}
-
-void step(Statement& statement)
-{
-    if (!did_error(statement))
+struct Database::details {
+    details(const std::string& path, int access)
     {
-        statement.sqlite_errcode = sqlite3_step(statement.stmt);
-    }
-}
-
-void bind(Statement& statement, const Bind& bind, int index)
-{
-    assert(index > 0);
-    switch (bind.data_type) {
-        case Bind::DataType::i32:
-            statement.sqlite_errcode = sqlite3_bind_int(statement.stmt, index, bind.i);
-            break;
-        case Bind::DataType::i64:
-        case Bind::DataType::u32:
-            statement.sqlite_errcode = sqlite3_bind_int64(statement.stmt, index, bind.i);
-            break;
-        case Bind::DataType::flt:
-            statement.sqlite_errcode = sqlite3_bind_double(statement.stmt, index, bind.f);
-            break;
-        case Bind::DataType::str:
-            statement.sqlite_errcode = sqlite3_bind_text(statement.stmt, index, bind.str, strlen(bind.str), nullptr);
-            break;
-    }
-}
-
-void bind(Statement& statement, const Bind& b)
-{
-    int index = 0;
-
-    if (b.type == Bind::Type::column)
-    {
-        index = sqlite3_bind_parameter_index(statement.stmt, b.column);
-    }
-    else if (b.type == Bind::Type::index)
-    {
-        index = b.index;
-    }
-    else
-    {
-        index++;
-    }
-
-    bind(statement, b, index);
-}
-
-void bind(Statement& statement, std::initializer_list<const Bind>&& binds)
-{
-    int index = 0;
-    for (auto b : binds)
-    {
-        if (did_error(statement))
-        {
-            break;
-        }
-
-        if (b.type == Bind::Type::column)
-        {
-            index = sqlite3_bind_parameter_index(statement.stmt, b.column);
-        }
-        else if (b.type == Bind::Type::index)
-        {
-            index = b.index;
-        }
+        status.opened = sqlite3_open_v2(path.c_str(), &db, access, nullptr) == SQLITE_OK;
+        if (!status.opened)
+            status.error_msg = sqlite3_errmsg(db);
         else
-        {
-            index++;
-        }
-
-        bind(statement, b, index);
+            // status.path = sqlite3_db_filename(db, path.c_str());
+            status.path = path;
     }
-}
+    ~details() { sqlite3_close(db); }
 
-template<>
-Typer<i32>::Type get<i32>(Statement& statement, int index)
+    sqlite3* db{nullptr};
+    struct {
+        bool opened{false};
+        std::string path;
+        std::string error_msg;
+    } status;
+};
+
+Database open(const std::string& path, int access)
 {
-    return sqlite3_column_int(statement.stmt, index - 1);
-}
-
-template<>
-Typer<i64>::Type get<i64>(Statement& statement, int index)
-{
-    return sqlite3_column_int64(statement.stmt, index - 1);
-}
-
-template<>
-Typer<u32>::Type get<u32>(Statement& statement, int index)
-{
-    return static_cast<Typer<u32>::Type>(sqlite3_column_int64(statement.stmt, index - 1));
-}
-
-template<>
-Typer<flt>::Type get<flt>(Statement& statement, int index)
-{
-    return static_cast<Typer<flt>::Type>(sqlite3_column_double(statement.stmt, index - 1));
-}
-
-template<>
-Typer<text>::Type get<text>(Statement& statement, int index)
-{
-    return reinterpret_cast<Typer<text>::Type>(sqlite3_column_text(statement.stmt, index - 1));
-}
-
-Database::Database(const std::string& path, bool opened, sqlite3* db)
-    : path(path)
-    , opened(opened)
-    , error(opened ? "" : sqlite3_errmsg(db))
-    , db(db)
-{}
-
-Database Database::open_db(const std::string& path, int access)
-{
-    sqlite3* db;
-    auto status = sqlite3_open_v2(path.c_str(), &db, access, nullptr);
-    return Database(path, status == SQLITE_OK, db);
+    auto me = new Database::details(path, access);
+    return Database(me);
 }
 
 Database Database::open_read_only(const std::string& path)
-{
-    return open_db(path, SQLITE_OPEN_READONLY);
-}
-
+    { return open(path, SQLITE_OPEN_READONLY); }
 Database Database::open_read_write(const std::string& path)
-{
-    return open_db(path, SQLITE_OPEN_READWRITE);
-}
-
+    { return open(path, SQLITE_OPEN_READWRITE); }
 Database Database::open_create_read_write(const std::string& path)
-{
-    return open_db(path, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE);
-}
+    { return open(path, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE); }
 
-std::unique_ptr<Database> Database::make_db(const std::string& path, int access)
+std::unique_ptr<Database> make(const std::string& path, int access)
 {
-    sqlite3* db;
-    auto status = sqlite3_open_v2(path.c_str(), &db, access, nullptr);
-    return std::unique_ptr<Database>(new Database(path, status == SQLITE_OK, db));
+    auto me = new Database::details(path, access);
+    return std::unique_ptr<Database>(new Database(me));
 }
 
 std::unique_ptr<Database> Database::make_read_only(const std::string& path)
-{
-    return make_db(path, SQLITE_OPEN_READONLY);
-}
-
+    { return make(path, SQLITE_OPEN_READONLY); }
 std::unique_ptr<Database> Database::make_read_write(const std::string& path)
-{
-    return make_db(path, SQLITE_OPEN_READWRITE);
-}
-
+    { return make(path, SQLITE_OPEN_READWRITE); }
 std::unique_ptr<Database> Database::make_create_read_write(const std::string& path)
-{
-    return make_db(path, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE);
-}
-
-Database::~Database()
-{
-    sqlite3_close(db);
-}
+    { return make(path, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE); }
 
 std::shared_ptr<Statement> Database::prepare(const std::string& statement)
 {
     assert(!statement.empty());
 
-    auto stmt = std::make_shared<Statement>(db, statement);
-    sqlite3_prepare_v3(db, statement.c_str(), statement.size(), 0, &stmt->stmt, nullptr);
+    auto stmt_details = new Statement::details(me->db, statement);
 
-    stmt->sqlite_errcode = sqlite3_errcode(db);
+    stmt_details->sqlite_errcode =
+            sqlite3_prepare_v3(me->db, statement.c_str(), statement.size(), 0, &stmt_details->stmt, nullptr);
+
+    auto stmt = std::make_shared<Statement>(stmt_details);
+    if (stmt->error())
+        stmt_details->sqlite_errmsg = sqlite3_errmsg(me->db);
 
     return stmt;
 }
@@ -313,7 +272,7 @@ std::shared_ptr<Statement> Database::prepare(const std::string& statement)
 std::shared_ptr<Statement> Database::get_schema_version()
 {
     auto stmt = prepare("PRAGMA user_version");
-    step(*stmt);
+    stmt->step();
     return stmt;
 }
 
@@ -323,11 +282,15 @@ std::shared_ptr<Statement> Database::set_schema_version(SchemaVersion version)
     char statement[max_size];
     snprintf(statement, max_size, "PRAGMA user_version=%d", version);
     auto stmt = prepare(statement);
-    if (is_ready(*stmt))
+    if (stmt->ready())
     {
-        step(*stmt);
+        stmt->step();
     }
     return stmt;
 }
+
+const std::string& Database::path() const { return me->status.path; }
+bool Database::opened() const { return me->status.opened; }
+const std::string& Database::error_msg() const { return me->status.error_msg; }
 
 } // namespace slight
