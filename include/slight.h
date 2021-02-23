@@ -2,6 +2,7 @@
 #define SLIGHT_H
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>

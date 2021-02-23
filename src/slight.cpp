@@ -3,7 +3,6 @@
 
 #include <cassert> // assert
 #include <cstring> // strlen
-#include <functional>
 
 namespace slight {
 
