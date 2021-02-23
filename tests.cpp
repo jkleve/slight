@@ -120,12 +120,14 @@ TEST_F(TestSlight, initial_schema_version)
 {
     auto ctx = db->get_schema_version();
     EXPECT_TRUE(slight::is_ready(*ctx));
+    EXPECT_TRUE(slight::has_row(*ctx));
     EXPECT_FALSE(slight::is_done(*ctx));
     EXPECT_FALSE(slight::did_error(*ctx));
     EXPECT_EQ(slight::get<slight::i32>(*ctx, 1), 0);
 
     slight::step(*ctx);
     EXPECT_FALSE(slight::is_ready(*ctx));
+    EXPECT_FALSE(slight::has_row(*ctx));
     EXPECT_TRUE(slight::is_done(*ctx));
     EXPECT_FALSE(slight::did_error(*ctx));
     EXPECT_EQ(slight::get<slight::i32>(*ctx, 1), 0);
@@ -135,17 +137,20 @@ TEST_F(TestSlight, set_get_schema_version)
 {
     auto set_version = db->set_schema_version(1);
     EXPECT_FALSE(slight::is_ready(*set_version));
+    EXPECT_FALSE(slight::has_row(*set_version));
     EXPECT_TRUE(slight::is_done(*set_version));
     EXPECT_FALSE(slight::did_error(*set_version));
 
     auto get_version = db->get_schema_version();
     EXPECT_TRUE(slight::is_ready(*get_version));
+    EXPECT_TRUE(slight::has_row(*get_version));
     EXPECT_FALSE(slight::is_done(*get_version));
     EXPECT_FALSE(slight::did_error(*get_version));
     EXPECT_EQ(slight::get<slight::i32>(*get_version, 1), 1);
 
     slight::step(*get_version);
     EXPECT_FALSE(slight::is_ready(*get_version));
+    EXPECT_FALSE(slight::has_row(*get_version));
     EXPECT_TRUE(slight::is_done(*get_version));
     EXPECT_FALSE(slight::did_error(*get_version));
     EXPECT_EQ(slight::get<slight::i32>(*get_version, 1), 0);
@@ -155,17 +160,20 @@ TEST_F(TestSlight, set_schema_version_max)
 {
     auto set_version = db->set_schema_version(std::numeric_limits<int>::max());
     EXPECT_FALSE(slight::is_ready(*set_version));
+    EXPECT_FALSE(slight::has_row(*set_version));
     EXPECT_TRUE(slight::is_done(*set_version));
     EXPECT_FALSE(slight::did_error(*set_version));
 
     auto get_version = db->get_schema_version();
     EXPECT_TRUE(slight::is_ready(*get_version));
+    EXPECT_TRUE(slight::has_row(*get_version));
     EXPECT_FALSE(slight::is_done(*get_version));
     EXPECT_FALSE(slight::did_error(*get_version));
     EXPECT_EQ(slight::get<slight::i32>(*get_version, 1), std::numeric_limits<int>::max());
 
     slight::step(*get_version);
     EXPECT_FALSE(slight::is_ready(*get_version));
+    EXPECT_FALSE(slight::has_row(*get_version));
     EXPECT_TRUE(slight::is_done(*get_version));
     EXPECT_FALSE(slight::did_error(*get_version));
     EXPECT_EQ(slight::get<slight::i32>(*get_version, 1), 0);

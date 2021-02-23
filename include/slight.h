@@ -20,7 +20,30 @@ template<> struct                Typer<u32>  { typedef uint32_t    Type; };
 template<> struct                Typer<flt>  { typedef double      Type; };
 template<> struct                Typer<text> { typedef const char* Type; };
 
-class Statement;
+struct Bind;
+struct Statement;
+
+/// Bind
+void bind(Statement& statement, const Bind& bind);
+void bind(Statement& statement, std::initializer_list<const Bind>&& bind);
+
+/// Checks
+bool is_ready(const Statement& statement);  /// Data ready and no errors
+bool has_row(const Statement& statement);   /// Data ready to be read via get
+bool is_done(const Statement& statement);   /// No more data
+bool did_error(const Statement& statement); /// Error
+
+/// Modifiers
+void step(Statement& statement);
+void reset(Statement& statement);
+
+/// Access
+template<ColumnType type>
+typename Typer<type>::Type get(Statement& statement, int index);
+
+/// Errors
+int error_code(const Statement& statement);
+const char* error_msg(const Statement& statement);
 
 struct Bind final {
     enum class Type { empty, index, column };
@@ -41,7 +64,6 @@ struct Bind final {
     Bind(const char* column, uint32_t value);
     Bind(const char* column, float value);
     Bind(const char* column, const char* value);
-    //Bind(const char* column, const char* value, std::size_t size);
     ~Bind() = default;
 
     const Type type;
@@ -71,24 +93,10 @@ public:
 
     ~Database();
 
-    //std::shared_ptr<Statement> check_exists(const std::string& table_name);
-
-    //Statement backup(int page_size);
-    //Statement backup(const std::string& backup_path, int page_size, int flags);
-
     std::shared_ptr<Statement> get_schema_version();
     std::shared_ptr<Statement> set_schema_version(SchemaVersion version);
 
     std::shared_ptr<Statement> prepare(const std::string& statement);
-    std::shared_ptr<Statement> prepare(const std::string& statement, const Bind& bind);
-    std::shared_ptr<Statement> prepare(const std::string& statement, std::initializer_list<const Bind>&& binds);
-    /// @feature: multiple queries at once
-
-    // Statement execute(const char* query);
-    // Statement execute(const char* query, Bind bind);
-    // Statement execute(const char* query, std::initializer_list<Bind>& binds);
-    // Statement execute(Q&& query);
-    // Statement execute(std::initializer_list<Q>&& queries);
 
     const std::string& path;
     const bool opened;
@@ -101,32 +109,6 @@ private:
 
     sqlite3* db;
 };
-
-/// Bind
-void bind(Statement& statement, const Bind& bind);
-void bind(Statement& statement, const std::vector<Bind>& bind);
-void bind(Statement& statement, std::initializer_list<const Bind&>&& bind);
-
-/// Checks
-bool is_ready(const Statement& statement);  /// Data ready and no errors
-bool has_row(const Statement& statement);   /// Data ready to be read via get
-bool is_done(const Statement& statement);   /// No more data
-bool did_error(const Statement& statement); /// Error
-
-/// Modifiers
-void step(Statement& statement);
-void reset(Statement& statement);
-
-/// Access
-template<ColumnType type>
-typename Typer<type>::Type get(Statement& statement, int index);
-
-/// Errors
-int error_code(const Statement& statement);
-const char* error_msg(const Statement& statement);
-
-/// @feature: connection ppol
-//class ConnectionPool;
 
 } // namespace slight
 
