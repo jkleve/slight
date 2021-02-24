@@ -61,19 +61,20 @@ int main()
     auto create_other_table_stmt = db.prepare(
         "CREATE TABLE IF NOT EXISTS my_other_table "
         "(id PRIMARY KEY, name VARCHAR(200) NOT NULL)");
-    auto insert_stmt = db.prepare(
-        "INSERT INTO my_table_name VALUES (?, ?, ?, ?)");
-    auto more_types = db.prepare(
-        "INSERT INTO my_table_name VALUES (:id, ?, :id, ?)");
-    auto select_stmt = db.prepare("SELECT * FROM my_table_name");
-    auto select_name_stmt = db.prepare("SELECT name FROM my_table_name");
-    auto err = db.prepare("slight MALFORMED query");
 
     create_my_table_stmt->step();
     assert(!create_my_table_stmt->error());
 
     create_other_table_stmt->step();
     assert(!create_other_table_stmt->error());
+
+    auto insert_stmt = db.prepare(
+        "INSERT INTO my_table_name VALUES (?, ?, ?, ?)");
+    auto insert_variables = db.prepare(
+        "INSERT INTO my_table_name VALUES (:id, ?, :id, ?)");
+    auto select_stmt = db.prepare("SELECT * FROM my_table_name");
+    auto select_name_stmt = db.prepare("SELECT name FROM my_table_name");
+    auto err = db.prepare("slight MALFORMED query");
 
     assert(insert_stmt->ready());
     insert_stmt->bind({Bind(id), Bind(name.c_str()), Bind(age), Bind(notes.c_str())});
@@ -106,6 +107,9 @@ int main()
         std::cout << stmt->get<slight::text>(1) << std::endl;
         return !stmt->error();
     });
+
+    insert_variables->bind({Bind(id, ":id"), Bind(name.c_str()), Bind(notes.c_str())});
+    insert_variables->step();
 
     select_name_stmt->reset();
     std::cout << "All names again:" << std::endl;
