@@ -11,6 +11,9 @@ struct sqlite3;
 
 namespace slight {
 
+// @todo goals:
+//   - write as many tests as possible. hundreds. make it a goal bc i'll write 'em small.
+//   - write at least one test per method/function
 // @todo ColumnType & Bind::DataType are the same mapping. combine?
 enum ColumnType { nil, i32, i64, u32, flt, text, blob, datetime };
 
@@ -22,11 +25,12 @@ template<> struct                Typer<flt>  { typedef double      Type; };
 template<> struct                Typer<text> { typedef const char* Type; };
 
 struct Bind;
+struct Database;
 
 struct Statement {
     struct details;
+    friend Database;
 
-    explicit Statement(details* me) : me(me) {}
     ~Statement() = default;
 
     bool ready() const;
@@ -40,15 +44,15 @@ struct Statement {
     void bind(const Bind& bind);
     void bind(std::initializer_list<const Bind>&& binds);
 
-    void step();
-    void reset();
+    bool step(); // returns has_row()
+    bool reset(); // returns ready()
 
     template<ColumnType type>
     typename Typer<type>::Type get(int index);
 
-    void for_each(const std::function<bool(Statement* stmt)>& fn);
-
 private:
+    explicit Statement(details* me) : me(me) {}
+
     details* me;
 };
 

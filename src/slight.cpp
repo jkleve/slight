@@ -100,7 +100,7 @@ void Statement::bind(std::initializer_list<const Bind>&& binds)
     }
 }
 
-void Statement::step()
+bool Statement::step()
 {
     if (!error())
     {
@@ -108,9 +108,15 @@ void Statement::step()
         if (error())
             me->sqlite_errmsg = sqlite3_errmsg(me->db);
     }
+
+    return has_row();
 }
 
-void Statement::reset() { sqlite3_reset(me->stmt); }
+bool Statement::reset()
+{
+    sqlite3_reset(me->stmt);
+    return ready();
+}
 
 template<>
 Typer<i32>::Type Statement::get<i32>(int index) { return sqlite3_column_int(me->stmt, index - 1); }
@@ -129,12 +135,6 @@ Typer<flt>::Type Statement::get<flt>(int index)
 template<>
 Typer<text>::Type Statement::get<text>(int index)
     { return reinterpret_cast<Typer<text>::Type>(sqlite3_column_text(me->stmt, index - 1)); }
-
-void Statement::for_each(const std::function<bool(Statement*)>& fn)
-{
-    for (step(); has_row(); step())
-        fn(this);
-}
 
 Bind::Bind(int32_t i)
     : type(Type::empty)
@@ -262,11 +262,11 @@ std::shared_ptr<Statement> Database::prepare(const std::string& statement)
     stmt_details->sqlite_errcode =
             sqlite3_prepare_v3(me->db, statement.c_str(), statement.size(), 0, &stmt_details->stmt, nullptr);
 
-    auto stmt = std::make_shared<Statement>(stmt_details);
+    auto stmt = new Statement(stmt_details);
     if (stmt->error())
         stmt_details->sqlite_errmsg = sqlite3_errmsg(me->db);
 
-    return stmt;
+    return std::shared_ptr<Statement>(stmt);
 }
 
 std::shared_ptr<Statement> Database::get_schema_version()
