@@ -87,38 +87,34 @@ int main()
     }
 
     std::cout << "Contents are:" << std::endl;
-    select_stmt->for_each([](slight::Statement* stmt) {
-        auto user_id = stmt->get<slight::i32>(1);
-        auto user_name = stmt->get<slight::text>(2);
-        auto user_age = stmt->get<slight::i32>(3);
-        auto user_notes = stmt->get<slight::text>(4);
+    while (select_stmt->step())
+    {
+        auto user_id = select_stmt->get<slight::i32>(1);
+        auto user_name = select_stmt->get<slight::text>(2);
+        auto user_age = select_stmt->get<slight::i32>(3);
+        auto user_notes = select_stmt->get<slight::text>(4);
 
         std::cout <<
-                  "User: id (" << user_id << "), " <<
+                  " User: id (" << user_id << "), " <<
                   "name: " << user_name << ", " <<
                   "age: " << user_age << ", " <<
                   "notes: " << user_notes << std::endl;
-
-        return !stmt->error();
-    });
+    };
 
     std::cout << "All names:" << std::endl;
-    select_name_stmt->for_each([](slight::Statement* stmt) {
-        std::cout << stmt->get<slight::text>(1) << std::endl;
-        return !stmt->error();
-    });
+    while (select_name_stmt->step())
+        std::cout << " " << select_name_stmt->get<slight::text>(1) << std::endl;
 
     insert_variables->bind({Bind(id, ":id"), Bind(name.c_str()), Bind(notes.c_str())});
     insert_variables->step();
 
     select_name_stmt->reset();
     std::cout << "All names again:" << std::endl;
-    select_name_stmt->for_each([](slight::Statement* stmt) {
-        std::cout << stmt->get<slight::text>(1) << std::endl;
-        return !stmt->error();
-    });
+    while (select_name_stmt->step())
+        std::cout << " " << select_name_stmt->get<slight::text>(1) << std::endl;
 
-    std::cout << err->error_code() << ": " << err->error_msg();
+    std::cout << "Example error:" << std::endl;
+    std::cout << " " << err->error_code() << ": " << err->error_msg();
 
     return 0;
 }
