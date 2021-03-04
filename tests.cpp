@@ -314,8 +314,329 @@ TEST_F(TestSlight, set_schema_version_max)
     EXPECT_EQ(get_version->get<slight::i32>(1), 0);
 }
 
-TEST_F(TestSlight, bind)
+TEST_F(TestSlight, bind_i32_min_type_empty)
 {
-    // expect:
-    // -
+    auto value = std::numeric_limits<int32_t>::min();
+    Bind bind(static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_i32_max_type_empty)
+{
+    auto value = std::numeric_limits<int32_t>::max();
+    Bind bind(static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_i64_min_type_empty)
+{
+    auto value = std::numeric_limits<int64_t>::min();
+    Bind bind(static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_i64_max_type_empty)
+{
+    auto value = std::numeric_limits<int64_t>::max();
+    Bind bind(static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_u32_min_type_empty)
+{
+    auto value = std::numeric_limits<uint32_t>::min();
+    Bind bind(static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_u32_max_type_empty)
+{
+    auto value = std::numeric_limits<uint32_t>::max();
+    Bind bind(static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+}
+
+TEST_F(TestSlight, bind_flt_min_type_empty)
+{
+    auto value = std::numeric_limits<float>::min();
+    Bind bind(value);
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+}
+
+TEST_F(TestSlight, bind_flt_max_type_empty)
+{
+    auto value = std::numeric_limits<float>::max();
+    Bind bind(value);
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+}
+
+TEST_F(TestSlight, bind_str_min_type_empty)
+{
+    auto value = "test str";
+    Bind bind(value);
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+}
+
+TEST_F(TestSlight, bind_str_max_type_empty)
+{
+    auto value = "test str 2";
+    Bind bind(value);
+    EXPECT_EQ(bind.type, Bind::Type::empty);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+}
+
+TEST_F(TestSlight, bind_i32_min_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<int32_t>::min();
+    Bind bind(index, static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_i32_max_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<int32_t>::max();
+    Bind bind(index, static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_i64_min_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<int64_t>::min();
+    Bind bind(index, static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_i64_max_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<int64_t>::max();
+    Bind bind(index, static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_u32_min_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<uint32_t>::min();
+    Bind bind(index, static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_flt_min_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<float>::min();
+    Bind bind(index, value);
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_flt_max_type_index)
+{
+    auto index = std::numeric_limits<int>::max();
+    auto value = std::numeric_limits<float>::max();
+    Bind bind(index, value);
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_str_min_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = "test str";
+    Bind bind(index, value);
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_str_max_type_index)
+{
+    auto index = std::numeric_limits<int>::max();
+    auto value = "test str 2";
+    Bind bind(index, value);
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_u32_max_type_index)
+{
+    auto index = std::numeric_limits<int>::min();
+    auto value = std::numeric_limits<uint32_t>::max();
+    Bind bind(index, static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::index);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_EQ(bind.index, index);
+}
+
+TEST_F(TestSlight, bind_i32_min_type_column)
+{
+    auto value = std::numeric_limits<int32_t>::min();
+    Bind bind("column 1", static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_i32_max_type_column)
+{
+    auto value = std::numeric_limits<int32_t>::max();
+    Bind bind("column 1", static_cast<int32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_i64_min_type_column)
+{
+    auto value = std::numeric_limits<int64_t>::min();
+    Bind bind("column 1", static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_i64_max_type_column)
+{
+    auto value = std::numeric_limits<int64_t>::max();
+    Bind bind("column 1", static_cast<int64_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::i64);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_u32_min_type_column)
+{
+    auto value = std::numeric_limits<uint32_t>::min();
+    Bind bind("column 1", static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_u32_max_type_column)
+{
+    auto value = std::numeric_limits<uint32_t>::max();
+    Bind bind("column 1", static_cast<uint32_t>(value));
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::u32);
+    EXPECT_EQ(bind.i, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_flt_min_type_column)
+{
+    auto value = std::numeric_limits<float>::min();
+    Bind bind("column 1", value);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_flt_max_type_column)
+{
+    auto value = std::numeric_limits<float>::max();
+    Bind bind("column 1", value);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::flt);
+    EXPECT_EQ(bind.f, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_str_type_column)
+{
+    auto value = "test str";
+    Bind bind("column 1", value);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_str_empty_type_column)
+{
+    auto value = "";
+    Bind bind("column 1", value);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_STREQ(bind.str, value);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_str_null_type_column)
+{
+    Bind bind("column 1", nullptr);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_EQ(bind.str, nullptr);
+    EXPECT_STREQ(bind.column, "column 1");
+}
+
+TEST_F(TestSlight, bind_column_empty)
+{
+    Bind bind("", nullptr);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_EQ(bind.str, nullptr);
+    EXPECT_STREQ(bind.column, "");
+}
+
+TEST_F(TestSlight, bind_column_null)
+{
+    Bind bind(nullptr, nullptr);
+    EXPECT_EQ(bind.type, Bind::Type::column);
+    EXPECT_EQ(bind.data_type, Bind::DataType::str);
+    EXPECT_EQ(bind.str, nullptr);
+    EXPECT_EQ(bind.column, nullptr);
 }
